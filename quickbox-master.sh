@@ -934,9 +934,6 @@ cat >/etc/apache2/sites-enabled/fileshare.conf<<DOE
   Satisfy Any
 </Directory>
 DOE
-
-  sed -i 's/memory_limit = 128M/memory_limit = 512M/g' /etc/php5/apache2/php.ini
-
   echo "${OK}"
 }
 
@@ -949,7 +946,6 @@ max_peers = 100
 min_peers_seed = -1
 max_peers_seed = -1
 max_uploads = 100
-max_memory_usage = 3500M
 download_rate = 0
 upload_rate = 0
 directory = /home/${username}/torrents/
