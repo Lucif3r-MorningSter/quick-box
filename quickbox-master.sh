@@ -263,11 +263,14 @@ cat >/home/$username/.rtorrent.rc<<RC
 # -- START HERE --
 scgi_port = localhost:$RPORT
 min_peers = 1
-max_peers = 100
+max_peers = 120
 min_peers_seed = -1
 max_peers_seed = -1
-max_uploads = 100
+max_uploads = 130
 download_rate = 0
+port_range = 51001-51250
+network.http.ssl_verify_peer.set=0
+port_random = yes
 upload_rate = 0
 directory = /home/${username}/torrents/
 session = /home/${username}/.sessions/
@@ -278,7 +281,15 @@ view_sort_new = alert,less=d.get_message=
 schedule = filter_alert,30,30,"view_filter = alert,d.get_message=; view_sort = alert"
 port_range = $PORT-$PORTEND
 use_udp_trackers = yes
-encryption = allow_incoming,try_outgoing,enable_retry
+encryption = allow_incoming,enable_retry,prefer_plaintext
+max_memory_usage = 3500M
+network.max_open_files.set = 1024 
+network.max_open_sockets.set = 1536 
+network.http.max_open.set = 48 
+network.send_buffer.size.set = 2M 
+network.receive_buffer.size.set = 2M
+pieces.preload.type.set = 1
+dht = disable
 peer_exchange = no
 check_hash = no
 execute_nothrow=chmod,777,/home/${username}/.sessions/
