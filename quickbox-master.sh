@@ -7,13 +7,19 @@
 # URL:      https://jmsolodesigns.com/code-projects/quick-box/seedbox-installer
 #
 # find server hostname and repo location for quick-box configuration
+#################################################################################
 HOSTNAME1=$(hostname -s);
 REPOURL="/root/tmp/quick-box"
-
-
+#################################################################################
 #Script Console Colors
-black=$(tput setaf 0);red=$(tput setaf 1);green=$(tput setaf 2);yellow=$(tput setaf 3);blue=$(tput setaf 4);magenta=$(tput setaf 5);cyan=$(tput setaf 6);white=$(tput setaf 7);on_red=$(tput setab 1);on_green=$(tput setab 2);on_yellow=$(tput setab 3);on_blue=$(tput setab 4);on_magenta=$(tput setab 5);on_cyan=$(tput setab 6);on_white=$(tput setab 7);bold=$(tput bold);dim=$(tput dim);underline=$(tput smul);reset_underline=$(tput rmul);standout=$(tput smso);reset_standout=$(tput rmso);normal=$(tput sgr0);alert=${white}${on_red};title=${standout};sub_title=${bold}${yellow};repo_title=${black}${on_green};
-
+black=$(tput setaf 0); red=$(tput setaf 1); green=$(tput setaf 2); yellow=$(tput setaf 3); 
+blue=$(tput setaf 4); magenta=$(tput setaf 5); cyan=$(tput setaf 6); white=$(tput setaf 7); 
+on_red=$(tput setab 1); on_green=$(tput setab 2); on_yellow=$(tput setab 3); on_blue=$(tput setab 4); 
+on_magenta=$(tput setab 5); on_cyan=$(tput setab 6); on_white=$(tput setab 7); bold=$(tput bold); 
+dim=$(tput dim); underline=$(tput smul); reset_underline=$(tput rmul); standout=$(tput smso); 
+reset_standout=$(tput rmso); normal=$(tput sgr0); alert=${white}${on_red}; title=${standout}; 
+sub_title=${bold}${yellow}; repo_title=${black}${on_green};
+#################################################################################
 if [[ -f /usr/bin/lsb_release ]]; then
     DISTRO=$(lsb_release -i | cut -d: -f2 | sed s/'^\t'//)
 elif [ -f "/etc/redhat-release" ]; then
@@ -21,8 +27,14 @@ elif [ -f "/etc/redhat-release" ]; then
 elif [ -f "/etc/debian_version" ]; then
     DISTRO=='Debian'
 fi
+#################################################################################
 
 function _string() { perl -le 'print map {(a..z,A..Z,0..9)[rand 62] } 0..pop' 15 ; }
+
+function _quickboxv() {
+  curl -o /usr/bin/quickbox https://raw.githubusercontent.com/JMSDOnline/quick-box-update/master/v1-6/quickbox >>"${OUTTO}" 2>&1
+  chmod +x /usr/bin/quickbox
+}
 
 function _bashrc() {
 cat >/root/.bashrc<<'EOF'
@@ -310,7 +322,7 @@ export USER=\$(id -un)
 IRSSI_CLIENT=yes
 RTORRENT_CLIENT=yes
 WIPEDEAD=yes
-ADDRESS=$(curl http://ipecho.net/plain; echo)
+ADDRESS=$(curl -s http://ipecho.net/plain || curl -s http://ifconfig.me/ip ; echo)
 
 # NO NEED TO EDIT PAST HERE!
 if [ "$WIPEDEAD" == "yes" ]; then screen -wipe >/dev/null 2>&1; fi
@@ -426,6 +438,37 @@ rm -rf /home/${username} >/dev/null 2>&1
 rm -rf /var/run/screens/S-${username} >/dev/null 2>&1
 rm -rf /etc/openvpn/server-${username}.conf >/dev/null 2>&1
 echo ${OK}
+}
+
+function upgradeBTSync() {
+  echo -n "${yellow}Please enter the username of your master account below${normal}"
+  echo
+  echo "(This is the username you created on install)"
+  echo
+  read -p "${bold}Master Account Username ${normal} : " username
+  if [[ ! $(grep "^${username}" ${HTPASSWD}) ]]; then 
+    echo "Username ${username} wasnt found ... please check your username and try again"
+    exit 1
+  fi
+  ip=$(curl -s http://ipecho.net/plain || curl -s http://ifconfig.me/ip ; echo)
+  echo -ne "${yellow}Would you like to upgrade BTSync?${normal} (Y/n): (Default: ${green}Y${normal}) "; read responce
+  case $responce in
+    [yY] | [yY][Ee][Ss] | "")
+    echo -n "Installing and Upgrading BTSync ... "
+      killall btsync
+      wget -qq https://github.com/JMSDOnline/quick-box/raw/master/sources/btsync.latest.tar.gz . >>"${OUTTO}" 2>&1
+      tar xf btsync.latest.tar.gz -C /home/"${username}"/ >>"${OUTTO}" 2>&1
+      sudo -u "${username}" /home/"${username}"/btsync --webui.listen $ip:8888 >>"${OUTTO}" 2>&1
+      rm -rf btsync.latest.tar.gz >>"${OUTTO}" 2>&1
+    echo "${OK}"
+    ;;
+    [nN] | [nN][Oo] ) echo "Skipping ... " ;;
+    *) echo "${cyan}Skipping BTSync install${normal} ... " ;;
+  esac
+  echo
+  echo "${green}Congrats! Upgrade is complete - Enjoy${normal}"
+  echo
+  echo
 }
 
 EOF
@@ -1038,6 +1081,9 @@ EOF
   chmod 775 /srv/rutorrent/plugins/fileupload/scripts/upload
   cp /srv/rutorrent/plugins/fileupload/conf.php /srv/rutorrent/conf/users/"${username}"/plugins/fileupload/conf.php
   chown -R www-data: /srv/rutorrent/conf/users/"${username}"
+
+  # Set proper permissions to filemanager so it may execute commands
+  find /srv/rutorrent/plugins/filemanager/scripts -type f -exec chmod 755 {} \;
 }
 
 # function autodl to install autodl irssi scripts (20)
@@ -1079,8 +1125,8 @@ export USER=`id -un`
 IRSSI_CLIENT=yes
 RTORRENT_CLIENT=yes
 WIPEDEAD=yes
-BTSYNC=no
-ADDRESS=$(curl http://ipecho.net/plain; echo)
+BTSYNC=
+ADDRESS=$(curl -s http://ipecho.net/plain || curl -s http://ifconfig.me/ip ; echo)
 
 if [ "$WIPEDEAD" == "yes" ]; then screen -wipe >/dev/null 2>&1; fi
 
@@ -1097,7 +1143,7 @@ if [ "$BTSYNC" == "yes" ]; then
 fi
 EOF
 if [[ $btsync == "yes" ]]; then
-  sed -is 's/BTSYNC=no/BTSYNC=yes/g' /home/${username}/.startup
+  sed -is 's/BTSYNC=$/BTSYNC=yes/g' /home/${username}/.startup
 fi
 echo "${OK}"
 }
@@ -1268,6 +1314,8 @@ function _askplex() {
       #dpkg -i plexmediaserver_0.9.14.6.1620-e0b7243_amd64.deb >/dev/null 2>&1
       echo -n "ServerName ${HOSTNAME1}" | sudo tee /etc/apache2/conf-available/fqdn.conf
       sudo a2enconf fqdn >>"${OUTTO}" 2>&1
+      touch /srv/rutorrent/home/.plex
+      chown www-data: /srv/rutorrent/home/.plex
       touch /etc/apache2/sites-enabled/plex.conf
       chown www-data: /etc/apache2/sites-enabled/plex.conf
       echo "deb http://shell.ninthgate.se/packages/debian squeeze main" > /etc/apt/sources.list.d/plexmediaserver.list
@@ -1287,10 +1335,10 @@ function _askbtsync() {
   case $responce in
     [yY] | [yY][Ee][Ss] )
     echo -n "Installing BTSync ... "
-    wget -qq https://github.com/JMSDOnline/quick-box/raw/master/sources/btsync.tar.gz .
-    tar xf btsync.tar.gz -C /home/${username}/
+    wget -qq https://github.com/JMSDOnline/quick-box/raw/master/sources/btsync.latest.tar.gz .
+    tar xf btsync.latest.tar.gz -C /home/${username}/
     sudo -u ${username} /home/${username}/btsync --webui.listen $ip:8888 >>"${OUTTO}" 2>&1
-    rm -rf btsync.tar.gz
+    rm -rf btsync.latest.tar.gz
     echo "${OK}"
     ;;
     [nN] | [nN][Oo] | "") echo "Skipping ... " ;;
@@ -1308,10 +1356,10 @@ function _finished() {
   echo -e "\033[0mCOMPLETED in ${FIN}/min\033[0m"
   echo "Valid Commands: "
   echo;echo;echo
+  echo -e "\033[1mquickbox\033[0m (shows current Quick Box version and additional commands)"
   echo -e "\033[1mreload\033[0m (restarts seedbox)"
   echo -e "\033[1mcreateSeedboxUser\033[0m (add seedboxuser)"
-  echo -e "\033[1mchangeUserpass\033[0m (change users SSH/FTP/ruTorrent password"
-  echo -e "\033[1mrestartSeedbox\033[0m (same as reload)"
+  echo -e "\033[1mchangeUserpass\033[0m (change users SSH/FTP/ruTorrent password)"
   echo -e "\033[1mdeleteSeedboxUser\033[0m (really?)"
   echo -e "\033[1msetdisk\033[0m (change the quota mount of a user) ... "
   echo;echo;echo
@@ -1367,6 +1415,7 @@ export DEBIAN_FRONTEND=noninteractive
 cd
 
 # QUICK BOX STRUCTURE
+_quickboxv
 _bashrc
 _intro
 _checkroot
